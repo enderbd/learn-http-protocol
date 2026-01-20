@@ -1,0 +1,7 @@
+DS_Store
+vendor/
+*.log
+.env
+main
+tmp/
+.idea
