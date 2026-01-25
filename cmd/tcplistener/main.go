@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+
+	"github.com/enderbd/learn-http-protocol/internal/headers"
 	"github.com/enderbd/learn-http-protocol/internal/request"
 )
 
@@ -29,6 +31,8 @@ func main() {
 			log.Fatalf("error requesting from reader: %s", err.Error())
 		}
 		printRequestLine(requestLine)		
+		printHeaders(requestLine.Headers)
+		printBody(requestLine.Body)
 	}
 }
 
@@ -37,4 +41,16 @@ func printRequestLine(req *request.Request) {
 	fmt.Printf("- Method: %s\n", req.RequestLine.Method)
 	fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
 	fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
+}
+
+func printHeaders(h headers.Headers) {
+	fmt.Println("Headers:")
+	for key, val := range h {
+		fmt.Printf("- %s: %s\n", key, val)
+	}
+}
+
+func printBody(b []byte) {
+	fmt.Println("Body:")
+	fmt.Printf("%s", string(b))
 }

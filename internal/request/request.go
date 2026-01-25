@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/enderbd/learn-http-protocol/internal/headers"
@@ -13,7 +14,8 @@ import (
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
-
+	Body []byte
+	bodyLengthRead int
 	state requestState
 }
 
@@ -28,6 +30,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
@@ -40,7 +43,10 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	req := &Request{
 		state:   requestStateInitialized,
 		Headers: headers.NewHeaders(),
+		Body: make([]byte, 0),
+		bodyLengthRead: 0,
 	}
+
 	for req.state != requestStateDone {
 		if readToIndex >= len(buf) {
 			newBuf := make([]byte, len(buf)*2)
@@ -156,9 +162,28 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
+			r.state = requestStateParsingBody
+		}		
+		return n, nil
+	case requestStateParsingBody:
+		lenStr, ok := r.Headers.Get("Content-Length")
+		if !ok {
+			r.state = requestStateDone
+			return len(data), nil
+		}
+		lenInt, err := strconv.Atoi(lenStr)
+		if err != nil {
+			return 0, fmt.Errorf("Could not convert the content lentgh to string")
+		}
+		r.Body = append(r.Body, data...)
+		r.bodyLengthRead += len(data)
+		if r.bodyLengthRead > lenInt {
+			return 0, fmt.Errorf("Data read lenght is bigger than the content lenght from header")
+		}
+		if r.bodyLengthRead == lenInt {
 			r.state = requestStateDone
 		}
-		return n, nil
+		return len(data), nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:
