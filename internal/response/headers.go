@@ -2,7 +2,6 @@ package response
 
 import (
 	"fmt"
-	"io"
 
 	"github.com/enderbd/learn-http-protocol/internal/headers"
 )
@@ -15,13 +14,3 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 	return h
 }
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-	for k, v := range headers {
-		_, err := w.Write([]byte(fmt.Sprintf("%s: %s\r\n", k, v)))
-		if err != nil {
-			return err
-		}
-	}
-	_, err := w.Write([]byte("\r\n"))
-	return err
-}

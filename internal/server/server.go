@@ -6,21 +6,26 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/enderbd/learn-http-protocol/internal/request"
 	"github.com/enderbd/learn-http-protocol/internal/response"
 )
 
+type Handler func(w *response.Writer, req *request.Request)
+
 // Server is an HTTP 1.1 server
 type Server struct {
+	handler  Handler
 	listener net.Listener
 	closed   atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
 	s := &Server{
+		handler:  handler,
 		listener: listener,
 	}
 	go s.listen()
@@ -44,15 +49,22 @@ func (s *Server) listen() {
 			}
 			log.Printf("Error accepting connection: %v", err)
 			continue
-		}	
+		}
 		go s.handle(conn)
 	}
 }
+
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	response.WriteStatusLine(conn, response.StatusCodeSuccess)
-	headers := response.GetDefaultHeaders(0)
-	if err := response.WriteHeaders(conn, headers); err != nil {
-		fmt.Printf("error: %v\n", err)
+	w := response.NewWriter(conn)
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		w.WriteStatusLine(response.StatusCodeBadRequest)
+		body := []byte(fmt.Sprintf("Error parsing request: %v", err))
+		w.WriteHeaders(response.GetDefaultHeaders(len(body)))
+		w.WriteBody(body)
+		return
 	}
+	s.handler(w, req)
+	return
 }
